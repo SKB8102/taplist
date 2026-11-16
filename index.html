@@ -271,12 +271,40 @@ function fitRail() {
   while (row.offsetWidth > rail.clientHeight - 40 && size > 50) { size -= 3; row.style.fontSize = size + 'px'; }
 }
 
+/**
+ * Fit the 1920×1080 stage to the screen. TV browsers don't always agree on the screen size,
+ * so take the SMALLEST width/height any of the APIs report (that's the part you can see).
+ */
+function viewportSize() {
+  const vv = window.visualViewport;
+  const ws = [window.innerWidth, document.documentElement.clientWidth, vv && vv.width].filter(x => x > 0);
+  const hs = [window.innerHeight, document.documentElement.clientHeight, vv && vv.height].filter(x => x > 0);
+  return { w: Math.min(...ws), h: Math.min(...hs) };
+}
 function fit() {
-  const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  const { w, h } = viewportSize();
+  const s = Math.min(w / 1920, h / 1080);
   document.getElementById('stage').style.transform = `translate(-50%, -50%) scale(${s})`;
+  const dbg = document.getElementById('debug');
+  if (dbg) {
+    const vv = window.visualViewport;
+    dbg.textContent = `inner ${innerWidth}×${innerHeight} · client ${document.documentElement.clientWidth}×${document.documentElement.clientHeight}` +
+      ` · visual ${vv ? Math.round(vv.width) + '×' + Math.round(vv.height) : 'n/a'} · screen ${screen.width}×${screen.height}` +
+      ` · dpr ${devicePixelRatio} · using ${w}×${h} · scale ${s.toFixed(3)}`;
+  }
 }
 
 window.addEventListener('resize', fit);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+// Some TV browsers settle their screen size a few seconds after loading — re-fit for a bit.
+[250, 1000, 3000, 6000, 10000].forEach(ms => setTimeout(fit, ms));
+// Add ?debug to the URL to show the screen sizes the TV reports (for troubleshooting).
+if (/[?&]debug\b/.test(location.search)) {
+  const d = document.createElement('div');
+  d.id = 'debug';
+  d.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;background:#000c;color:#0f0;font:16px monospace;padding:6px 10px;border-radius:4px;';
+  document.body.appendChild(d);
+}
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitNames(); fitRail(); });
 [500, 2000, 5000].forEach(ms => setTimeout(() => { fitNames(); fitRail(); }, ms));
 fitRail();
